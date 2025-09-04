@@ -1,3 +1,9 @@
+variable "my_ip" {
+  description = "Your IP address to allow SSH and other management access."
+  type        = string
+  default     = "0.0.0.0/0" # WARNING: Change this to your actual IP address for security.
+}
+
 variable "aws_region" {
   description = "The AWS region to create resources in."
   type        = string

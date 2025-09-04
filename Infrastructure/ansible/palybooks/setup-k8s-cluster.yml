@@ -1,42 +1,42 @@
 ---
 - name: 1. Configure all K8s nodes
-  hosts: k8s_cluster
-  become: yes
-  tasks:
-    - name: Install k8s prerequisites
-      apt: { name: ['apt-transport-https', 'curl', 'docker.io'], state: present, update_cache: yes }
-    - name: Add Kubernetes apt-key
-      apt_key: { url: https://packages.cloud.google.com/apt/doc/apt-key.gpg, state: present }
-    - name: Add Kubernetes repository
-      apt_repository: { repo: 'deb https://apt.kubernetes.io/ kubernetes-xenial main', state: present, filename: kubernetes }
-    - name: Install kubelet, kubeadm, and kubectl
-      apt: { name: ['kubelet', 'kubeadm', 'kubectl'], state: present }
-    - name: Start and enable Docker
-      service: { name: docker, state: started, enabled: yes }
+- hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: Install k8s prerequisites
+      apt: { name: ['apt-transport-https', 'curl', 'docker.io'], state: present, update_cache: yes }
+    - name: Add Kubernetes apt-key
+      apt_key: { url: https://packages.cloud.google.com/apt/doc/apt-key.gpg, state: present }
+    - name: Add Kubernetes repository
+      apt_repository: { repo: 'deb https://apt.kubernetes.io/ kubernetes-xenial main', state: present, filename: kubernetes }
+    - name: Install kubelet, kubeadm, and kubectl
+      apt: { name: ['kubelet', 'kubeadm', 'kubectl'], state: present }
+    - name: Start and enable Docker
+      service: { name: docker, state: started, enabled: yes }
 
 - name: 2. Initialize the Kubernetes master node
-  hosts: k8s_master
-  become: yes
-  tasks:
-    - name: Initialize the cluster with kubeadm
-      shell: kubeadm init --pod-network-cidr=10.244.0.0/16
-      args: { creates: /etc/kubernetes/admin.conf }
-    - name: Set up kubeconfig for the ubuntu user
-      command: "{{ item }}"
-      with_items: ['mkdir -p /home/ubuntu/.kube', 'cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config', 'chown ubuntu:ubuntu /home/ubuntu/.kube/config']
-    - name: Install Flannel pod network
-      become: false
-      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-    - name: Generate join command
-      command: kubeadm token create --print-join-command
-      register: join_command_result
-    - name: Store the join command
-      set_fact: { join_command: "{{ join_command_result.stdout }}" }
+- hosts: k8s_master
+  become: yes
+  tasks:
+    - name: Initialize the cluster with kubeadm
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16
+      args: { creates: /etc/kubernetes/admin.conf }
+    - name: Set up kubeconfig for the ubuntu user
+      command: "{{ item }}"
+      with_items: ['mkdir -p /home/ubuntu/.kube', 'cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config', 'chown ubuntu:ubuntu /home/ubuntu/.kube/config']
+    - name: Install Flannel pod network
+      become: false
+      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    - name: Generate join command
+      command: kubeadm token create --print-join-command
+      register: join_command_result
+    - name: Store the join command
+      set_fact: { join_command: "{{ join_command_result.stdout }}" }
 
 - name: 3. Join worker nodes to the cluster
-  hosts: k8s_workers
-  become: yes
-  tasks:
-    - name: Join the cluster
-      shell: "{{ hostvars[groups['k8s_master'][0]].join_command }}"
-      args: { creates: /etc/kubernetes/kubelet.conf }
+- hosts: k8s_workers
+  become: yes
+  tasks:
+    - name: Join the cluster
+      shell: "{{ hostvars[groups['k8s_master'][0]].join_command }}"
+      args: { creates: /etc/kubernetes/kubelet.conf }
